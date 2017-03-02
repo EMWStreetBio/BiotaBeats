@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+# wioeufhwuef
 # images = read image
 # image = cv2.imread("jurassic_world.jpg")
 image = cv2.imread("output_0027.png")
