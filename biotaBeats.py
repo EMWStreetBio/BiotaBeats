@@ -2,6 +2,7 @@ import cv2
 import sys
 import numpy as np
 import pysynth as ps
+from math import pi, floor
 from scipy.spatial.distance import euclidean
 
 def img_processing(imgfile):
@@ -11,24 +12,24 @@ def img_processing(imgfile):
        3) image erosion; 4) image dilation;
     '''
     image = cv2.imread(imgfile)
-    cv2.imshow("Original", image)
+    #cv2.imshow("Original", image)
 
     # gfImage = blur image (rad = 3)
     radius = 7
     kernel = cv2.getGaussianKernel(9, 3)
     gfImage = cv2.GaussianBlur(image,(radius,radius),0)
-    cv2.imshow("Blurred", gfImage)
+    #cv2.imshow("Blurred", gfImage)
 
     # binarized = binarize
     grayImage = cv2.cvtColor(gfImage, cv2.COLOR_BGR2GRAY)
     cv2.imshow("GrayScale", grayImage)
     ret,binImage = cv2.threshold(grayImage,127,255,cv2.THRESH_BINARY)
-    cv2.imshow("Binarized", binImage)
+    #cv2.imshow("Binarized", binImage)
 
     # erosion
     kernel = np.ones((15,15),np.uint8)
     erImage = cv2.erode(binImage,kernel,iterations = 1)
-    cv2.imshow("Eroded", erImage)
+    #cv2.imshow("Eroded", erImage)
     '''CURRENTLY COMMENTED OUT WHILE TESTING YIXIAO.PNG
     # dilation
     diImage = cv2.dilate(erImage,kernel,iterations = 1)
@@ -70,8 +71,7 @@ def find_centroids(img, orig):
     return keypoints
 
 def rad_dist(img, centroids):
-    center = ((img.shape[0]/2.0), (img.shape[1]/2.0))
-    top_center = ((img.shape[0]/2.0), 0.0)
+    center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
     rad_dist = np.zeros(len(centroids))
     for i in range(len(centroids)):
         rad_dist[i] = euclidean(centroids[i].pt, center)
@@ -79,19 +79,32 @@ def rad_dist(img, centroids):
     notes.sort()
     return notes
 
+def sectorize(img, notes, num_sectors):
+    sector_ang = (2.0*pi) / num_sectors
+    center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
+    center_vector = [0.0, -(img.shape[1]/2.0)]
+    note_vals = []
+    for i in range(len(notes)):
+        pt_vector = np.subtract(notes[i][1].pt, center)
+        # may run into issues with parallel/antiparallel center_vector and pt_vector
+        num = np.dot(center_vector, pt_vector)
+        denom = np.linalg.det([center_vector, pt_vector])
+        angle = np.math.atan2(denom, num)
+        if (angle < 0.0): angle += (2.0*pi)
+        note_vals.append(floor(angle / sector_ang))
+        #print notes[i][1].pt, angle
+    return zip(notes, note_vals)
+
 def main():
     # image = cv2.imread("jurassic_world.jpg")
     # image = cv2.imread("output_0027.png")
     # image = cv2.imread("BlobTest.jpg")
     final, orig = img_processing("yixiao.png")
     centroids = find_centroids(final, orig)
-    for keypoint in centroids:
-        print "centroid: " + str(keypoint.pt)
-
     note_dist = rad_dist(final, centroids)
-    for i in range(len(note_dist)):
-        print note_dist[i][0], note_dist[i][1].pt
-
+    #for i in range(len(note_dist)):
+    #    print note_dist[i][0], note_dist[i][1].pt
+    print sectorize(final, note_dist, 5)
     cv2.waitKey(0) # not sure where this should go
 
 if __name__=='__main__':
