@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import pysynth as ps
+# import pysynth as ps
 from scipy.spatial.distance import euclidean
 
 # images = read image
