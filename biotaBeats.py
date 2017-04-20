@@ -77,8 +77,9 @@ def analyze_notes(img, centroids, num_sectors=5):
         ROW 3: centroid diameter (?)
     """
     center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
+    center_vector = [0.0, -(img.shape[1]/2.0)]
     sector_ang = (2.0*pi) / num_sectors
-    note_info = np.zeros((3, len(centroids)))
+    note_info = np.zeros((4, len(centroids))) # hard-coded!
     for i in range(len(centroids)):
         note_info[1, i] = euclidean(centroids[i].pt, center) # fill ROW 1
         # may run into issues with parallel/antiparallel center_vector and pt_vector
@@ -92,62 +93,61 @@ def analyze_notes(img, centroids, num_sectors=5):
         note_info[0, i] = (int(floor(angle / sector_ang))) # fill ROW 0
     return note_info
 
-def generate_music(img, note_info, algorithm, octave_span=3, total_time=60):
+def generate_music(img, note_info, algorithm, musicfile,
+    octave_span=3, tot_time=60):
     """ FINAL!!
         algorithm = 'concentric' or 'radial'
         total_time = seconds
         possible future use: sorted_index = np.argsort()
     """
-    if (octave_span % 2 == 0):
+    if (octave_span % 2 == 0) and (octave_span != 0):
         print "ERROR: 'octave_span' must be odd"
         return None
+    if (octave_span > 9):
+        print "ERROR: 'octave_span' beyond limits of MIDI" # technically exist octaves from 0-9.5
+        return None
+    print musicfile
 
     # create your MIDI object
     mf = MIDIFile(1, adjust_origin=True) # only 1 track, changed adjust_origin to T
     track = 0   # the only track
     time = 0    # start at the beginning
 
-    # radius, scale note
-    max_dist = (final.shape[0]+final.shape[1]) / 4.0 # radius, image currently not a perfect square
-    time_factor = total_time / max_dist # where max = total_time
-    # diameter, note octave
-    # normalization, where mean = 0; max - min = octave_span
-    mean_size = np.mean(note_info[3, :]) # mean colony diameter
-    octave_factor = (np.amax(note_info[3, :])-np.amin(note_info[3, :])) / octave_span
-    mf.addTrackName(track, time, "Sample Track")
-    
-    mf.addTempo(track, time, (1/time_factor))
+    if (algorithm == 'concentric'): # where max = total_time
+        sort_by = note_info[1, :] # radial distance
+        max_time = (img.shape[0]+img.shape[1]) / 4.0 # max, radius (average)
+    elif (algorithm == 'radial'): # normalization, where mean = 0; max - min = octave_span
+        sort_by = note_info[2, :] # angle
+        max_time = 2.0 * pi # aka 360 degrees
+    else:
+        print "ERROR: Invalid 'algorithm' mode"
+        return None
+
+    if (octave_span != 0): octave_factor = (np.amax(note_info[3, :])-np.amin(note_info[3, :])) / octave_span
+    time_factor = tot_time / max_time
+    mf.addTrackName(track, time, "Biota Beats Sample")
+    mf.addTempo(track, time, 100) # tempo/bpm (param3) to be parametrized
+
+    #print "sort_by", sort_by
 
     channel = 0
-    note_conversion = {0:60, 1:62, 2:64, 3:67, 4:69} # hard-coded, may change
+    note_conversion = {0:60, 1:62, 2:64, 3:67, 4:69} # hard-coded for pentatonic scale, may change
 
-    for i in range(note_info.shape[1]): # add some notes
-        if (algorithm == 'concentric'):
-            sort_by = note_info[1, :]
-            max_dist = (final.shape[0]+final.shape[1]) / 4.0 # radius, image currently not a perfect square
-            time_factor = total_time / max_dist # where max = total_time
-        elif (algorithm == 'radial'):
-            sort_by = note_info[2, :]
-            max_rad = np.amax()
-            time_factor =
-        else:
-            print "ERROR: Invalid 'algorithm' mode"
-            return None
-
-        octave = note_info[3, i] - mean_size
-        pitch = note_conversion[note_info[0, i]]
+    # may need to sort notes
+    for i in range(note_info.shape[1]):
+        if (octave_span != 0):
+            octave = int(floor((note_info[3, i]-np.amin(note_info[3, :])) / octave_factor)) - (octave_span / 2)
+        else: octave = 0
+        pitch = note_conversion[note_info[0, i]] + (12 * octave) # 12 half-notes per octave
         time = sort_by[i] * time_factor
-        duration = 4 # can be parameterized
-        volume = 100 # can be parameterized
+        duration = 5 # to be parameterized
+        volume = 100 # to  be parameterized
+        print "note", i, pitch, octave, time
         mf.addNote(track, channel, pitch, time, duration, volume)
 
-    ''' http://stackoverflow.com/questions/11059801/how-can-i-write-a-midi-file-with-python
-    how to write a note (each pitch # is a piano key)
-    pitch = 60           # C4 (middle C)
-    time = 0             # start on beat 0
-    duration = 1         # 1 beat long
-    mf.addNote(track, channel, pitch, time, duration, volume)
-    '''
+    # write it to disk
+    with open(musicfile, 'wb') as outf:
+        mf.writeFile(outf)
 
 def rad_dist(img, centroids):
     """ TO BE DEPRECATED """
@@ -230,13 +230,18 @@ def main():
     #final, orig = img_processing("images/BlobTest.jpeg", inv=False, show=True)
     final, orig = img_processing("images/yixiao.png", dilate=0, inv=False)
     centroids = find_centroids(final, orig)
-    note_dist = rad_dist(final, centroids)
-    note_vals = sectorize(final, note_dist, 5)
-    radius = (final.shape[0]+final.shape[1])/4.0 # image currently not a perfect square
-    for i in range(len(note_vals)):
-        print note_vals[i][0][0], note_vals[i][0][1], note_vals[i][1]
-    write_wav(note_vals, radius, "yixiao.wav")
-    write_midi(note_vals, radius, 60, "yixiao.mid")
+    #note_dist = rad_dist(final, centroids)
+    #note_vals = sectorize(final, note_dist, 5)
+    #radius = (final.shape[0]+final.shape[1])/4.0 # image currently not a perfect square
+    #for i in range(len(note_vals)):
+    #    print note_vals[i][0][0], note_vals[i][0][1], note_vals[i][1]
+    #write_wav(note_vals, radius, "yixiao.wav")
+    #write_midi(note_vals, radius, 60, "yixiao.mid")
+    note_info = analyze_notes(final, centroids, 5)
+    generate_music(final, note_info, 'concentric', "music/yixiao_conc.mid", 3, 30)
+    generate_music(final, note_info, 'concentric', "music/yixiao_conc_no8.mid", 0, 30)
+    generate_music(final, note_info, 'radial', "music/yixiao_rad.mid", 3, 10) # doesn't make sense with sector notes
+    generate_music(final, note_info, 'radial', "music/yixiao_rad_no8.mid", 0, 10) # doesn't make sense with sector notes
 
 if __name__=='__main__':
     # add arguments for image_location for testing... currently in main()
