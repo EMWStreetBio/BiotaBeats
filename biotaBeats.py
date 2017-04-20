@@ -1,6 +1,5 @@
 import cv2
 import sys
-#import time
 import numpy as np
 import pysynth as ps
 from midiutil.MidiFile import MIDIFile
@@ -70,7 +69,88 @@ def find_centroids(img, orig, show=False): # finds dark spots only
 
     return keypoints
 
+def analyze_notes(img, centroids, num_sectors=5):
+    """ FINAL!!
+        ROW 0: note value
+        ROW 1: radial distance (pixels)
+        ROW 2: angle from top, center (radians)
+        ROW 3: centroid diameter (?)
+    """
+    center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
+    sector_ang = (2.0*pi) / num_sectors
+    note_info = np.zeros((3, len(centroids)))
+    for i in range(len(centroids)):
+        note_info[1, i] = euclidean(centroids[i].pt, center) # fill ROW 1
+        # may run into issues with parallel/antiparallel center_vector and pt_vector
+        pt_vector = np.subtract(centroids[i].pt, center)
+        num = np.dot(center_vector, pt_vector)
+        denom = np.linalg.det([center_vector, pt_vector])
+        angle = np.math.atan2(denom, num)
+        if (angle < 0.0): angle += (2.0*pi)
+        note_info[2, i] = angle # fill ROW 2
+        note_info[3, i] = centroids[i].size # fill ROW 3
+        note_info[0, i] = (int(floor(angle / sector_ang))) # fill ROW 0
+    return note_info
+
+def generate_music(img, note_info, algorithm, octave_span=3, total_time=60):
+    """ FINAL!!
+        algorithm = 'concentric' or 'radial'
+        total_time = seconds
+        possible future use: sorted_index = np.argsort()
+    """
+    if (octave_span % 2 == 0):
+        print "ERROR: 'octave_span' must be odd"
+        return None
+
+    # create your MIDI object
+    mf = MIDIFile(1, adjust_origin=True) # only 1 track, changed adjust_origin to T
+    track = 0   # the only track
+    time = 0    # start at the beginning
+
+    # radius, scale note
+    max_dist = (final.shape[0]+final.shape[1]) / 4.0 # radius, image currently not a perfect square
+    time_factor = total_time / max_dist # where max = total_time
+    # diameter, note octave
+    # normalization, where mean = 0; max - min = octave_span
+    mean_size = np.mean(note_info[3, :]) # mean colony diameter
+    octave_factor = (np.amax(note_info[3, :])-np.amin(note_info[3, :])) / octave_span
+    mf.addTrackName(track, time, "Sample Track")
+    
+    mf.addTempo(track, time, (1/time_factor))
+
+    channel = 0
+    note_conversion = {0:60, 1:62, 2:64, 3:67, 4:69} # hard-coded, may change
+
+    for i in range(note_info.shape[1]): # add some notes
+        if (algorithm == 'concentric'):
+            sort_by = note_info[1, :]
+            max_dist = (final.shape[0]+final.shape[1]) / 4.0 # radius, image currently not a perfect square
+            time_factor = total_time / max_dist # where max = total_time
+        elif (algorithm == 'radial'):
+            sort_by = note_info[2, :]
+            max_rad = np.amax()
+            time_factor =
+        else:
+            print "ERROR: Invalid 'algorithm' mode"
+            return None
+
+        octave = note_info[3, i] - mean_size
+        pitch = note_conversion[note_info[0, i]]
+        time = sort_by[i] * time_factor
+        duration = 4 # can be parameterized
+        volume = 100 # can be parameterized
+        mf.addNote(track, channel, pitch, time, duration, volume)
+
+    ''' http://stackoverflow.com/questions/11059801/how-can-i-write-a-midi-file-with-python
+    how to write a note (each pitch # is a piano key)
+    pitch = 60           # C4 (middle C)
+    time = 0             # start on beat 0
+    duration = 1         # 1 beat long
+    mf.addNote(track, channel, pitch, time, duration, volume)
+    '''
+
 def rad_dist(img, centroids):
+    """ TO BE DEPRECATED """
     center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
     rad_dist = np.zeros(len(centroids))
     for i in range(len(centroids)):
@@ -80,6 +160,7 @@ def rad_dist(img, centroids):
     return notes
 
 def sectorize(img, notes, num_sectors):
+    """ TO BE DEPRECATED """
     sector_ang = (2.0*pi) / num_sectors
     center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
     center_vector = [0.0, -(img.shape[1]/2.0)]
@@ -95,6 +176,7 @@ def sectorize(img, notes, num_sectors):
     return zip(notes, note_vals) # FIX: currently zips ((a,b)c)
 
 def write_wav(note_vals, total_dist, musicfile): # add total_time?
+    """ TO BE DEPRECATED """
     # most basic, plays all notes w/o regard for rests or relative timing
     # hard-coded for pentatonic scale:
     note_conversion = {0:'c', 1:'d', 2:'e', 3:'g', 4:'a'}
@@ -111,8 +193,9 @@ def write_wav(note_vals, total_dist, musicfile): # add total_time?
     ps.make_wav(notes, fn = musicfile)
 
 def write_midi(note_vals, total_dist, total_time, musicfile):
+    """ TO BE DEPRECATED """
     # create your MIDI object
-    mf = MIDIFile(1)     # only 1 track
+    mf = MIDIFile(1, adjust_origin=True) # only 1 track, changed adjust_origin to T
     track = 0   # the only track
 
     time = 0    # start at the beginning
@@ -153,7 +236,7 @@ def main():
     for i in range(len(note_vals)):
         print note_vals[i][0][0], note_vals[i][0][1], note_vals[i][1]
     write_wav(note_vals, radius, "yixiao.wav")
-    write_midi(note_vals, radius, 5, "yixiao.mid")
+    write_midi(note_vals, radius, 60, "yixiao.mid")
 
 if __name__=='__main__':
     # add arguments for image_location for testing... currently in main()
