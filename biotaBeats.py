@@ -1,16 +1,27 @@
-import cv2
 import sys
 #import time
 import numpy as np
+
+import sys
+import os
+if os.path.exists("PySynth-1.1/"):
+    sys.path.append('PySynth-1.1')
+
+# sys.path.append('/Users/gautam/.virtualenvs/cv/lib/python2.7/site-packages')
+import cv2
+
 import pysynth as ps
 from midiutil.MidiFile import MIDIFile
 from math import pi, floor
 from scipy.spatial.distance import euclidean
+import image_thresholding
 
 def img_processing(imgfile, erode=1, dilate=1, inv=True, show=False):
     ''' STEP-BY-STEP:
-       1) Gaussian filtering; 2) image grayscale + binarization;
-       OPT: 3) image erosion; 4) image dilation;
+       1) Gaussian filtering;
+       2) image grayscale + binarization;
+       3) image erosion (OPTIONAL)
+       4) image dilation;
     '''
     orig = cv2.imread(imgfile)
     if show: cv2.imshow("Original", orig)
@@ -60,7 +71,7 @@ def find_centroids(img, orig, show=False): # finds dark spots only
 
     # Create a detector with the parameters
     detector = cv2.SimpleBlobDetector_create(params)
-    keypoints = detector.detect(img)
+    keypoints = detector.detect(img) #type: cv.Keypoint
 
     # Show centroids
     if show:
@@ -112,7 +123,7 @@ def write_wav(note_vals, total_dist, musicfile): # add total_time?
 
 def write_midi(note_vals, total_dist, total_time, musicfile):
     # create your MIDI object
-    mf = MIDIFile(1)     # only 1 track
+    mf = MIDIFile(1, adjust_origin=True)     # only 1 track
     track = 0   # the only track
 
     time = 0    # start at the beginning
@@ -143,17 +154,18 @@ def write_midi(note_vals, total_dist, total_time, musicfile):
         mf.writeFile(outf)
 
 def main():
-    #final, orig = img_processing("images/output_0027.png", show=True)
+    # final, orig = img_processing("images/output_0027.png", show=False)
     #final, orig = img_processing("images/BlobTest.jpeg", inv=False, show=True)
     final, orig = img_processing("images/yixiao.png", dilate=0, inv=False)
-    centroids = find_centroids(final, orig)
+    # centroids = find_centroids(final, orig)
+    centroids = image_thresholding.adaptiveThresholding(orig)
     note_dist = rad_dist(final, centroids)
     note_vals = sectorize(final, note_dist, 5)
     radius = (final.shape[0]+final.shape[1])/4.0 # image currently not a perfect square
     for i in range(len(note_vals)):
         print note_vals[i][0][0], note_vals[i][0][1], note_vals[i][1]
-    write_wav(note_vals, radius, "yixiao.wav")
-    write_midi(note_vals, radius, 5, "yixiao.mid")
+    # write_wav(note_vals, radius, "yixiao.wav")
+    # write_midi(note_vals, radius, 5, "yixiao.mid")
 
 if __name__=='__main__':
     # add arguments for image_location for testing... currently in main()

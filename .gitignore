@@ -1,0 +1,17 @@
+# Generated files
+*.pyc
+*.mid
+*.midi
+*.wav
+
+#Wolfram files
+*.nb
+
+# IDE files
+.idea/
+
+# OS files
+.DS_Store
+
+#PySynth
+PySynth-1.1/
