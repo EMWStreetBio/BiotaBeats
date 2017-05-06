@@ -11,7 +11,7 @@ import pysynth as ps
 from midiutil.MidiFile import MIDIFile
 from math import pi, floor
 from scipy.spatial.distance import euclidean
-import image_thresholding
+from image_thresholding import *
 
 def img_processing(imgfile, erode=1, dilate=1, inv=True, show=False):
     ''' STEP-BY-STEP:
@@ -95,7 +95,7 @@ def analyze_notes(img, centroids, num_sectors=5):
         pt_vector = np.subtract(centroids[i].pt, center)
         num = np.dot(center_vector, pt_vector)
         denom = np.linalg.det([center_vector, pt_vector])
-        angle = np.math.atan2(denom, num)
+        angle = np.math.atan2(denom, num) #in range (-pi, pi]
         if (angle < 0.0): angle += (2.0*pi)
         note_info[2, i] = angle # fill ROW 2
         note_info[3, i] = centroids[i].size # fill ROW 3
@@ -104,21 +104,28 @@ def analyze_notes(img, centroids, num_sectors=5):
 
 def generate_music(img, note_info, algorithm, musicfile,
     octave_span=3, tot_time=60):
-    """ FINAL!!
+    '''
+        img: Center of image should be center of circle. Cropped closely to size
         algorithm = 'concentric' or 'radial'
+        note_info: 4xn numpy array with format [noteValue, radialDistance, angleFrom+YAxis, diameterOfColony]. n = number of notes
+        musicfile: string specifying output filename
+        octave_span: odd number of octaves to span notes across
         total_time = seconds
         possible future use: sorted_index = np.argsort()
-    """
+    '''
     if (octave_span % 2 == 0) and (octave_span != 0):
         print "ERROR: 'octave_span' must be odd"
         return None
     if (octave_span > 9):
         print "ERROR: 'octave_span' beyond limits of MIDI" # technically exist octaves from 0-9.5
         return None
+    if (type(octave_span) != int):
+        print "Casting 'octave_span' %s to an integer %d" % (str(octave_span), int(octave_span))
+        octave_span = int(octave_span)
     print musicfile
 
     # create your MIDI object
-    mf = MIDIFile(1, adjust_origin=True) # only 1 track, changed adjust_origin to T
+    mf = MIDIFile(5, adjust_origin=True) # only 1 track, changed adjust_origin to T
     track = 0   # the only track
     time = 0    # start at the beginning
 
@@ -135,23 +142,29 @@ def generate_music(img, note_info, algorithm, musicfile,
     if (octave_span != 0): octave_factor = (np.amax(note_info[3, :])-np.amin(note_info[3, :])) / octave_span
     time_factor = tot_time / max_time
     mf.addTrackName(track, time, "Biota Beats Sample")
-    mf.addTempo(track, time, 100) # tempo/bpm (param3) to be parametrized
+    mf.addTempo(track, time, 60) # tempo/bpm (param3) to be parametrized
 
     #print "sort_by", sort_by
 
     channel = 0
     note_conversion = {0:60, 1:62, 2:64, 3:67, 4:69} # hard-coded for pentatonic scale, may change
 
-    # may need to sort notes
+    # Generate notes
+    print "Note\tPitch\trelOct\tStart(Beats)\tTrack"
     for i in range(note_info.shape[1]):
         if (octave_span != 0):
             octave = int(floor((note_info[3, i]-np.amin(note_info[3, :])) / octave_factor)) - (octave_span / 2)
         else: octave = 0
         pitch = note_conversion[note_info[0, i]] + (12 * octave) # 12 half-notes per octave
         time = sort_by[i] * time_factor
+        '''BUG TODO: parameterize tempo to use total time.
+        e.g. if we use 'angle' algorithm mode,
+        and sort_by[i] = 2*pi radians, time_factor = 60/(2*pi)
+        then final note is ALWAYS played at 60th beat'''
         duration = 5 # to be parameterized
         volume = 100 # to  be parameterized
-        print "note", i, pitch, octave, time
+        track = int(note_info[0,i])
+        print i,"\t",pitch,"\t",octave,"\t",time,"\t",track
         mf.addNote(track, channel, pitch, time, duration, volume)
 
     # write it to disk
@@ -238,7 +251,8 @@ def main():
     # final, orig = img_processing("images/output_0027.png", show=False)
     #final, orig = img_processing("images/BlobTest.jpeg", inv=False, show=True)
     final, orig = img_processing("images/yixiao.png", dilate=0, inv=False)
-    centroids = find_centroids(final, orig)
+    # centroids = find_centroids(final, orig, show=False)
+    centroids = adaptiveThresholding(orig, show=False)
     #note_dist = rad_dist(final, centroids)
     #note_vals = sectorize(final, note_dist, 5)
     #radius = (final.shape[0]+final.shape[1])/4.0 # image currently not a perfect square

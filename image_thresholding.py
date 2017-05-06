@@ -15,7 +15,7 @@ from scipy.spatial.distance import euclidean
 # cv2.imshow("Original", image)
 
 
-def adaptiveThresholding(image):
+def adaptiveThresholding(image, show=False):
     '''Blur image'''
     radius = 7
     kernel = cv2.getGaussianKernel(9, 3)
@@ -32,7 +32,8 @@ def adaptiveThresholding(image):
     ''' Morphological transformations (dilation, erosion, etc) '''
     kernel = np.ones((21,21),np.uint8)
     erosion = cv2.erode(binarized,kernel,iterations = 1)
-    cv2.imshow("Eroded", erosion)
+    if show:
+        cv2.imshow("Eroded", erosion)
 
     final = erosion
 
@@ -81,7 +82,8 @@ def adaptiveThresholding(image):
             average_brightness = np.mean(temp_window)
         else:
             average_brightness = 0
-        print "keypoint: (%.3f, %.3f), radius %.3f, average brightness %d" % (point.pt[0], point.pt[1], rad, average_brightness)
+        if show:
+            print "keypoint: (%.3f, %.3f), radius %.3f, average brightness %d" % (point.pt[0], point.pt[1], rad, average_brightness)
 
     # Find out attributes of keypoints[0], point.pt, etc.
     # l = dir(keypoints[0].pt)
@@ -89,13 +91,14 @@ def adaptiveThresholding(image):
     # print keypoints[0].pt[0]
 
     '''Draw detected blobs as red circles'''
-    # cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS ensures the size of the circle corresponds to the size of blob
-    im_with_keypoints = cv2.drawKeypoints(image, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    if show:
+        # cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS ensures the size of the circle corresponds to the size of blob
+        im_with_keypoints = cv2.drawKeypoints(image, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-    # Show centroids
-    cv2.imshow("Keypoints", im_with_keypoints)
-    cv2.imwrite( "keypoints.jpg", im_with_keypoints)
-    cv2.waitKey(0) # press any key while image is selected to escape
-    cv2.destroyAllWindows()
+        # Show centroids
+        cv2.imshow("Keypoints", im_with_keypoints)
+        cv2.imwrite( "keypoints.jpg", im_with_keypoints)
+        cv2.waitKey(0) # press any key while image is selected to escape
+        cv2.destroyAllWindows()
 
     return keypoints
