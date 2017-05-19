@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import os
+import csv
 if os.path.exists("PySynth-1.1/"):
     sys.path.append('PySynth-1.1')
 
@@ -84,11 +85,13 @@ def analyze_notes(img, centroids, num_sectors=5):
         ROW 1: radial distance (pixels)
         ROW 2: angle from top, center (radians)
         ROW 3: centroid diameter (?)
+        ROW 4: average sector density (?)
     """
     center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
     center_vector = [0.0, -(img.shape[1]/2.0)]
     sector_ang = (2.0*pi) / num_sectors
-    note_info = np.zeros((4, len(centroids))) # hard-coded!
+    note_info = np.zeros((5, len(centroids))) # hard-coded!
+    area_sums = np.zeros((1, num_sectors))
     for i in range(len(centroids)):
         note_info[1, i] = euclidean(centroids[i].pt, center) # fill ROW 1
         # may run into issues with parallel/antiparallel center_vector and pt_vector
@@ -100,7 +103,15 @@ def analyze_notes(img, centroids, num_sectors=5):
         note_info[2, i] = angle # fill ROW 2
         note_info[3, i] = centroids[i].size # fill ROW 3
         note_info[0, i] = (int(floor(angle / sector_ang))) # fill ROW 0
+        area_sums[0, note_info[0, i]] += pi * ((note_info[3, i] / 2.0) ** 2)
+    area_sums = area_sums / (0.5*sector_ang*(((img.shape[0]+img.shape[1])/2.0)**2))
+    for i in range(len(centroids)):
+        note_info[4, i] = area_sums[0, note_info[0, i]]
+    print note_info
     return note_info
+
+def save_csv(filename, note_info):
+    return None
 
 def generate_music(img, note_info, algorithm, musicfile,
     octave_span=3, tot_time=60):
