@@ -188,82 +188,6 @@ def generate_music(img, note_info, algorithm, musicfile,
     with open(musicfile, 'wb') as outf:
         mf.writeFile(outf)
 
-def rad_dist(img, centroids):
-    """ TO BE DEPRECATED """
-    center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
-    rad_dist = np.zeros(len(centroids))
-    for i in range(len(centroids)):
-        rad_dist[i] = euclidean(centroids[i].pt, center)
-    notes = zip(rad_dist, centroids)
-    notes.sort()
-    return notes
-
-def sectorize(img, notes, num_sectors):
-    """ TO BE DEPRECATED """
-    sector_ang = (2.0*pi) / num_sectors
-    center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
-    center_vector = [0.0, -(img.shape[1]/2.0)]
-    note_vals = []
-    for i in range(len(notes)):
-        pt_vector = np.subtract(notes[i][1].pt, center)
-        # may run into issues with parallel/antiparallel center_vector and pt_vector
-        num = np.dot(center_vector, pt_vector)
-        denom = np.linalg.det([center_vector, pt_vector])
-        angle = np.math.atan2(denom, num)
-        if (angle < 0.0): angle += (2.0*pi)
-        note_vals.append(int(floor(angle / sector_ang)))
-    return zip(notes, note_vals) # FIX: currently zips ((a,b)c)
-
-def write_wav(note_vals, total_dist, musicfile): # add total_time?
-    """ TO BE DEPRECATED """
-    # most basic, plays all notes w/o regard for rests or relative timing
-    # hard-coded for pentatonic scale:
-    note_conversion = {0:'c', 1:'d', 2:'e', 3:'g', 4:'a'}
-    rests = np.zeros(len(note_vals)) # may be unnecessary
-    rests[0] = note_vals[0][0][0]
-    for i in range(1,len(note_vals)):
-        rests[i] = note_vals[i][0][0] - note_vals[i-1][0][0]
-    # simply plays all notes as quarter notes (no rests)
-    # PySynth cannot play multiple notes at the same time, which would be preferable
-    notes = []
-    for i in note_vals:
-        notes.append((note_conversion[i[1]], 4))
-    notes = tuple(notes)
-    ps.make_wav(notes, fn = musicfile)
-
-def write_midi(note_vals, total_dist, total_time, musicfile):
-    """ TO BE DEPRECATED """
-    # create your MIDI object
-    mf = MIDIFile(1, adjust_origin=True) # only 1 track, changed adjust_origin to T
-    track = 0   # the only track
-
-    time = 0    # start at the beginning
-    time_factor = total_time / total_dist
-    mf.addTrackName(track, time, "Sample Track")
-    mf.addTempo(track, time, (1/time_factor))
-
-    channel = 0
-    note_conversion = {0:60, 1:62, 2:64, 3:67, 4:69}
-
-    for i in note_vals: # add some notes
-        pitch = note_conversion[i[1]]
-        time = i[0][0] * time_factor
-        duration = 4 # can be parameterized
-        volume = 100 # can be parameterized
-        mf.addNote(track, channel, pitch, time, duration, volume)
-
-    ''' http://stackoverflow.com/questions/11059801/how-can-i-write-a-midi-file-with-python
-    how to write a note (each pitch # is a piano key)
-    pitch = 60           # C4 (middle C)
-    time = 0             # start on beat 0
-    duration = 1         # 1 beat long
-    mf.addNote(track, channel, pitch, time, duration, volume)
-    '''
-
-    # write it to disk
-    with open(musicfile, 'wb') as outf:
-        mf.writeFile(outf)
-
 def main():
     # final, orig = img_processing("images/output_0027.png", show=False)
     #final, orig = img_processing("images/BlobTest.jpeg", inv=False, show=True)
@@ -278,7 +202,7 @@ def main():
     #write_wav(note_vals, radius, "yixiao.wav")
     #write_midi(note_vals, radius, 60, "yixiao.mid")
     note_info = analyze_notes(final, centroids, 5)
-    save_csv("test.csv", note_info)
+    save_csv("output_data.csv", note_info)
     #generate_music(final, note_info, 'concentric', "music/yixiao_conc.mid", 3, 30)
     #generate_music(final, note_info, 'concentric', "music/yixiao_conc_no8.mid", 0, 30)
     #generate_music(final, note_info, 'radial', "music/yixiao_rad.mid", 3, 10) # doesn't make sense with sector notes
