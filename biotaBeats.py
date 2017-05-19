@@ -81,37 +81,42 @@ def find_centroids(img, orig, show=False): # finds dark spots only
 
 def analyze_notes(img, centroids, num_sectors=5):
     """ FINAL!!
-        ROW 0: note value
-        ROW 1: radial distance (pixels)
-        ROW 2: angle from top, center (radians)
-        ROW 3: centroid diameter (?)
-        ROW 4: average sector density (?)
+        COL 0: note value
+        COL 1: radial distance (pixels)
+        COL 2: angle from top, center (radians)
+        COL 3: centroid diameter (?)
+        COL 4: average sector density (?)
     """
     center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
     center_vector = [0.0, -(img.shape[1]/2.0)]
     sector_ang = (2.0*pi) / num_sectors
-    note_info = np.zeros((5, len(centroids))) # hard-coded!
-    area_sums = np.zeros((1, num_sectors))
+    note_info = np.zeros((len(centroids), 5)) # hard-coded!
+    area_sums = np.zeros(num_sectors)
     for i in range(len(centroids)):
-        note_info[1, i] = euclidean(centroids[i].pt, center) # fill ROW 1
+        note_info[i,1] = euclidean(centroids[i].pt, center) # fill ROW 1
         # may run into issues with parallel/antiparallel center_vector and pt_vector
         pt_vector = np.subtract(centroids[i].pt, center)
         num = np.dot(center_vector, pt_vector)
         denom = np.linalg.det([center_vector, pt_vector])
         angle = np.math.atan2(denom, num) #in range (-pi, pi]
         if (angle < 0.0): angle += (2.0*pi)
-        note_info[2, i] = angle # fill ROW 2
-        note_info[3, i] = centroids[i].size # fill ROW 3
-        note_info[0, i] = (int(floor(angle / sector_ang))) # fill ROW 0
-        area_sums[0, note_info[0, i]] += pi * ((note_info[3, i] / 2.0) ** 2)
+        note_info[i,2] = angle # fill ROW 2
+        note_info[i,3] = centroids[i].size # fill ROW 3
+        note_info[i,0] = (int(floor(angle / sector_ang))) # fill ROW 0
+        area_sums[note_info[i,0]] += pi * ((note_info[i,3] / 2.0) ** 2)
     area_sums = area_sums / (0.5*sector_ang*(((img.shape[0]+img.shape[1])/2.0)**2))
     for i in range(len(centroids)):
-        note_info[4, i] = area_sums[0, note_info[0, i]]
-    print note_info
+        note_info[i,4] = area_sums[note_info[i,0]]
     return note_info
 
 def save_csv(filename, note_info):
-    return None
+    with open(filename, 'wb') as csvfile:
+        fwriter = csv.writer(csvfile)
+        header = ["NOTE #","SECTOR","",""]
+        fwriter.writerow(header)
+        for note_row in note_info:
+            fwriter.writerow(note_row)
+    csvfile.close()
 
 def generate_music(img, note_info, algorithm, musicfile,
     octave_span=3, tot_time=60):
@@ -141,16 +146,16 @@ def generate_music(img, note_info, algorithm, musicfile,
     time = 0    # start at the beginning
 
     if (algorithm == 'concentric'): # where max = total_time
-        sort_by = note_info[1, :] # radial distance
+        sort_by = note_info[:,1] # radial distance
         max_time = (img.shape[0]+img.shape[1]) / 4.0 # max, radius (average)
     elif (algorithm == 'radial'): # normalization, where mean = 0; max - min = octave_span
-        sort_by = note_info[2, :] # angle
+        sort_by = note_info[:,2] # angle
         max_time = 2.0 * pi # aka 360 degrees
     else:
         print "ERROR: Invalid 'algorithm' mode"
         return None
 
-    if (octave_span != 0): octave_factor = (np.amax(note_info[3, :])-np.amin(note_info[3, :])) / octave_span
+    if (octave_span != 0): octave_factor = (np.amax(note_info[:,3])-np.amin(note_info[:,3])) / octave_span
     time_factor = tot_time / max_time
     mf.addTrackName(track, time, "Biota Beats Sample")
     mf.addTempo(track, time, 60) # tempo/bpm (param3) to be parametrized
@@ -162,11 +167,11 @@ def generate_music(img, note_info, algorithm, musicfile,
 
     # Generate notes
     print "Note\tPitch\trelOct\tStart(Beats)\tTrack"
-    for i in range(note_info.shape[1]):
+    for i in range(note_info.shape[0]):
         if (octave_span != 0):
-            octave = int(floor((note_info[3, i]-np.amin(note_info[3, :])) / octave_factor)) - (octave_span / 2)
+            octave = int(floor((note_info[i,3]-np.amin(note_info[:,3])) / octave_factor)) - (octave_span / 2)
         else: octave = 0
-        pitch = note_conversion[note_info[0, i]] + (12 * octave) # 12 half-notes per octave
+        pitch = note_conversion[note_info[i,0]] + (12 * octave) # 12 half-notes per octave
         time = sort_by[i] * time_factor
         '''BUG TODO: parameterize tempo to use total time.
         e.g. if we use 'angle' algorithm mode,
@@ -174,7 +179,7 @@ def generate_music(img, note_info, algorithm, musicfile,
         then final note is ALWAYS played at 60th beat'''
         duration = 5 # to be parameterized
         volume = 100 # to  be parameterized
-        track = int(note_info[0,i])
+        track = int(note_info[i,0])
         print i,"\t",pitch,"\t",octave,"\t",time,"\t",track
         mf.addNote(track, channel, pitch, time, duration, volume)
 
@@ -272,6 +277,7 @@ def main():
     #write_wav(note_vals, radius, "yixiao.wav")
     #write_midi(note_vals, radius, 60, "yixiao.mid")
     note_info = analyze_notes(final, centroids, 5)
+    save_csv("test.csv", note_info)
     generate_music(final, note_info, 'concentric', "music/yixiao_conc.mid", 3, 30)
     generate_music(final, note_info, 'concentric', "music/yixiao_conc_no8.mid", 0, 30)
     generate_music(final, note_info, 'radial', "music/yixiao_rad.mid", 3, 10) # doesn't make sense with sector notes
