@@ -85,7 +85,7 @@ def analyze_notes(img, centroids, num_sectors=5):
         COL 1: radial distance (pixels)
         COL 2: angle from top, center (radians)
         COL 3: centroid diameter (?)
-        COL 4: average sector density (?)
+        COL 4: average sector density (?) [0,1]
     """
     center = [(img.shape[0]/2.0), (img.shape[1]/2.0)]
     center_vector = [0.0, -(img.shape[1]/2.0)]
@@ -112,10 +112,11 @@ def analyze_notes(img, centroids, num_sectors=5):
 def save_csv(filename, note_info):
     with open(filename, 'wb') as csvfile:
         fwriter = csv.writer(csvfile)
-        header = ["NOTE #","SECTOR","",""]
+        header = ["NOTE #", "SECTOR", "RAD DIST", "ANGLE (RAD)" , "DIAMETER", "SECTOR DENSITY"]
         fwriter.writerow(header)
-        for note_row in note_info:
-            fwriter.writerow(note_row)
+        for i in range(len(note_info)):
+            row = np.insert(note_info[i], 0, i+1)
+            fwriter.writerow(row)
     csvfile.close()
 
 def generate_music(img, note_info, algorithm, musicfile,
@@ -278,10 +279,10 @@ def main():
     #write_midi(note_vals, radius, 60, "yixiao.mid")
     note_info = analyze_notes(final, centroids, 5)
     save_csv("test.csv", note_info)
-    generate_music(final, note_info, 'concentric', "music/yixiao_conc.mid", 3, 30)
-    generate_music(final, note_info, 'concentric', "music/yixiao_conc_no8.mid", 0, 30)
-    generate_music(final, note_info, 'radial', "music/yixiao_rad.mid", 3, 10) # doesn't make sense with sector notes
-    generate_music(final, note_info, 'radial', "music/yixiao_rad_no8.mid", 0, 10) # doesn't make sense with sector notes
+    #generate_music(final, note_info, 'concentric', "music/yixiao_conc.mid", 3, 30)
+    #generate_music(final, note_info, 'concentric', "music/yixiao_conc_no8.mid", 0, 30)
+    #generate_music(final, note_info, 'radial', "music/yixiao_rad.mid", 3, 10) # doesn't make sense with sector notes
+    #generate_music(final, note_info, 'radial', "music/yixiao_rad_no8.mid", 0, 10) # doesn't make sense with sector notes
 
 if __name__=='__main__':
     # add arguments for image_location for testing... currently in main()
