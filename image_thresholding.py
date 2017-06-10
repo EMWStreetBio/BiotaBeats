@@ -20,29 +20,34 @@ def adaptiveThresholding(image, show=False):
     radius = 7
     kernel = cv2.getGaussianKernel(9, 3)
     gfImage = cv2.GaussianBlur(image,(radius,radius),0)
-    # cv2.imshow("Blurred", gfImage)
+    if show:
+	cv2.imshow("Blurred", gfImage)
 
     '''Binarize image'''
     gray = cv2.cvtColor(gfImage, cv2.COLOR_BGR2GRAY)
-    # cv2.imshow("GrayScale", gray)
+    if show:
+	cv2.imshow("GrayScale", gray)
     # ret,binarized = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
     binarized = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
-    # cv2.imshow("Binarized", binarized)
+    if show:
+	cv2.imshow("Binarized", binarized)
 
     ''' Morphological transformations (dilation, erosion, etc) '''
-    kernel = np.ones((21,21),np.uint8)
+    '''Erosion'''
+    kernel = np.ones((13,13),np.uint8)
     erosion = cv2.erode(binarized,kernel,iterations = 1)
     if show:
         cv2.imshow("Eroded", erosion)
 
     final = erosion
 
-    # # yixiao.png does not show up with dilation
-    # kernel = np.ones((5,5),np.uint8)
-    # dilation = cv2.dilate(erosion,kernel,iterations = 1)
-    # cv2.imshow("Dilated", dilation)
-    #
-    # ret,final = cv2.threshold(dilation,127,255,cv2.THRESH_BINARY_INV)
+    '''Dilation'''
+    # yixiao.png does not show up with dilation
+    kernel = np.ones((9,9),np.uint8)
+    dilation = cv2.dilate(erosion,kernel,iterations = 1)
+    cv2.imshow("Dilated", dilation)
+
+    ret,final = cv2.threshold(dilation,127,255,cv2.THRESH_BINARY_INV)
 
     '''Find centroids'''
     # Setup SimpleBlobDetector parameters.

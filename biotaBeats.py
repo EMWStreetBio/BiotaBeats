@@ -250,7 +250,8 @@ def write_midi(note_vals, total_dist, total_time, musicfile):
 def main():
     # final, orig = img_processing("images/output_0027.png", show=False)
     #final, orig = img_processing("images/BlobTest.jpeg", inv=False, show=True)
-    final, orig = img_processing("images/yixiao.png", dilate=0, inv=False)
+    # final, orig = img_processing("images/yixiao.png", dilate=0, inv=False)
+    final, orig = img_processing("images/yixiao_contrasted.jpg", dilate=0, inv=False)
     # centroids = find_centroids(final, orig, show=False)
     centroids = adaptiveThresholding(orig, show=False)
     #note_dist = rad_dist(final, centroids)
